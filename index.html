@@ -50,6 +50,35 @@
       analytics.load("61caoAh65ou6q3M7xHTDgJ2fI7oHTUre"); // <-- REPLACE WITH YOUR TEST WRITE KEY
       
       // =========================================================================
+      // SOURCE MIDDLEWARE FOR BOT FILTERING
+      // This intercepts events to stop anonymous bot traffic from entering Segment
+      // =========================================================================
+      analytics.addSourceMiddleware(function({ payload, next }) {
+        const userAgent = navigator.userAgent.toLowerCase();
+        
+        // A list of common bot/scraper signatures
+        const bots = [
+          'bot', 'crawler', 'spider', 'headlesschrome', 
+          'slurp', 'yahoo', 'yandex', 'baiduspider'
+        ];
+        
+        // Check if the user agent contains any of the bot signatures
+        const isBot = bots.some(bot => userAgent.includes(bot));
+
+        if (isBot) {
+          // It's a bot! We log a warning to the console, and we DO NOT call next(payload).
+          // By skipping next(), the event is completely dropped before costing an MTU.
+          console.warn("🤖 BOT TRAFFIC DETECTED BY MIDDLEWARE. Dropping event:", payload.obj.type);
+          return; 
+        }
+
+        // It's a real human user. We proceed with sending the event.
+        console.log("✅ Human traffic verified by Middleware. Proceeding with event:", payload.obj.type);
+        next(payload);
+      });
+      // =========================================================================
+
+      // =========================================================================
       // INTENTIONAL OMISSION:
       // analytics.page(); 
       // is deliberately removed from here so we don't track anonymous visits.
