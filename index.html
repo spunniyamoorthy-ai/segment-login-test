@@ -40,42 +40,20 @@
         }
     </style>
 
-    <!-- SEGMENT SNIPPET -->
+    <!-- 
+      SEGMENT SNIPPET 
+      Note: analytics.page() has been REMOVED from the bottom to prevent anonymous events on load.
+    -->
     <script>
       !function(){var i="analytics",analytics=window[i]=window[i]||[];if(!analytics.initialize)if(analytics.invoked)window.console&&console.error&&console.error("Segment snippet included twice.");else{analytics.invoked=!0;analytics.methods=["trackSubmit","trackClick","trackLink","trackForm","pageview","identify","reset","group","track","ready","alias","debug","page","screen","once","off","on","addSourceMiddleware","addIntegrationMiddleware","setAnonymousId","addDestinationMiddleware","register"];analytics.factory=function(e){return function(){if(window[i].initialized)return window[i][e].apply(window[i],arguments);var n=Array.prototype.slice.call(arguments);if(["track","screen","alias","group","page","identify"].indexOf(e)>-1){var c=document.querySelector("link[rel='canonical']");n.push({__t:"bpc",c:c&&c.getAttribute("href")||void 0,p:location.pathname,u:location.href,s:location.search,t:document.title,r:document.referrer})}n.unshift(e);analytics.push(n);return analytics}};for(var n=0;n<analytics.methods.length;n++){var key=analytics.methods[n];analytics[key]=analytics.factory(key)}analytics.load=function(key,n){var t=document.createElement("script");t.type="text/javascript";t.async=!0;t.setAttribute("data-global-segment-analytics-key",i);t.src="https://cdn.segment.com/analytics.js/v1/" + key + "/analytics.min.js";var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r);analytics._loadOptions=n};analytics._writeKey="YOUR_WRITE_KEY_HERE";;analytics.SNIPPET_VERSION="5.2.0";
       
       analytics.load("YOUR_WRITE_KEY_HERE"); // <-- REPLACE WITH YOUR TEST WRITE KEY
       
       // =========================================================================
-      // NEW: SOURCE MIDDLEWARE FOR BOT FILTERING
-      // This runs before any event is sent to Segment.
+      // INTENTIONAL OMISSION:
+      // analytics.page(); 
+      // is deliberately removed from here so we don't track anonymous visits.
       // =========================================================================
-      analytics.addSourceMiddleware(function({ payload, next }) {
-        const userAgent = navigator.userAgent.toLowerCase();
-        
-        // A list of common bot/scraper signatures
-        const bots = [
-          'bot', 'crawler', 'spider', 'headlesschrome', 
-          'slurp', 'yahoo', 'yandex', 'baiduspider'
-        ];
-        
-        // Check if the user agent contains any of the bot signatures
-        const isBot = bots.some(bot => userAgent.includes(bot));
-
-        if (isBot) {
-          // It's a bot! We log a warning to the console, and we DO NOT call next(payload).
-          // By skipping next(), the event is completely dropped.
-          console.warn("🤖 BOT TRAFFIC DETECTED BY MIDDLEWARE. Dropping event:", payload.obj.type);
-          return; 
-        }
-
-        // It's a real human user. We proceed with sending the event.
-        console.log("✅ Human traffic verified by Middleware. Proceeding with event:", payload.obj.type);
-        next(payload);
-      });
-      // =========================================================================
-
-      // Note: analytics.page() is still removed from here to prevent anonymous load events.
       }}();
     </script>
 </head>
@@ -83,8 +61,8 @@
 
     <!-- Toast Notification Container -->
     <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg opacity-0 transition-opacity duration-300 pointer-events-none z-50 flex flex-col items-center">
-        <span class="font-bold">Login Attempted!</span>
-        <span class="text-sm mt-1">Check your browser console.</span>
+        <span class="font-bold">Login Successful!</span>
+        <span class="text-sm mt-1">Check the console/Segment Debugger for Identify, Page, and Track events.</span>
     </div>
 
     <div class="w-full max-w-md bg-white p-8 rounded-xl">
@@ -128,25 +106,55 @@
                 Login
             </button>
         </form>
+
+        <!-- Footer Links -->
+        <div class="mt-8 text-center text-sm">
+            <p class="text-gray-600 mb-4">
+                Having trouble logging in? <a href="#" class="text-blue-500 hover:underline">Contact us</a>
+            </p>
+            <p class="text-gray-600">
+                Don't have a Moosend account yet? <a href="#" class="text-blue-500 hover:underline">Sign up free</a>
+            </p>
+        </div>
     </div>
 
     <script>
         document.getElementById('login-form').addEventListener('submit', function(e) {
+            // Prevent actual form submission for dummy purposes
             e.preventDefault();
+
             const emailInput = document.getElementById('email').value;
+
+            // Generate a fake user ID for testing purposes (e.g., hash of email or database ID)
+            // In a real app, this comes from the authentication backend response.
             const fakeUserId = "user_" + btoa(emailInput).substring(0, 10);
 
-            console.log("--- Segment Events Triggered ---");
+            console.log("--- Segment Events Firing ---");
 
-            // 1. Identify
-            analytics.identify(fakeUserId, { email: emailInput });
-            
-            // 2. Page
-            analytics.page('Login Dashboard');
-            
-            // 3. Track
-            analytics.track('User Logged In', { method: 'Email/Password' });
+            // 1. IDENTIFY the user FIRST
+            // This associates the browser with the known user ID.
+            analytics.identify(fakeUserId, {
+                email: emailInput,
+                login_method: 'Email/Password'
+            });
+            console.log(`1. Called analytics.identify('${fakeUserId}')`);
 
+            // 2. Fire the PAGE call
+            // Now that identify has fired, this page call is attached to the known user.
+            analytics.page('Login Dashboard', {
+                url: window.location.href,
+                path: window.location.pathname
+            });
+            console.log("2. Called analytics.page('Login Dashboard')");
+
+            // 3. Fire a TRACK event (optional but recommended)
+            analytics.track('User Logged In', {
+                method: 'Email/Password',
+                domain: 'identity.moosend.com'
+            });
+            console.log("3. Called analytics.track('User Logged In')");
+
+            // Show success message
             showToast();
         });
 
@@ -154,6 +162,7 @@
             const toast = document.getElementById('toast');
             toast.classList.remove('opacity-0');
             toast.classList.add('opacity-100');
+            
             setTimeout(() => {
                 toast.classList.remove('opacity-100');
                 toast.classList.add('opacity-0');
